@@ -151,12 +151,46 @@ class BlufiClient:
     def connectByName(self, name: str, timeout: float = None) -> None:
         return self.await_bleak(self._connect_async_name(name, timeout=timeout))
 
+    def connectByAddress(self, addr: str, timeout: float = None) -> None:
+        return self.await_bleak(self._connect_async_addr(name, timeout=timeout))
+
     async def _connect_async_name(self, name: str, timeout: float) -> bool:
         self._reset_state()
         # Use cached device if possible, to avoid having BleakClient do
         # a scan again.
         device = await BleakScanner.find_device_by_name(
             name, cb=dict(use_bdaddr=False)
+        )
+
+        client = BleakClient(device)
+        # connect() takes a timeout, but it's a timeout to do a
+        # discover() scan, not an actual connect timeout.
+        try:
+            await client.connect(timeout=timeout)
+            if get_platform_type() != 'Linux':
+                log.info("MTU: %d" % client.mtu_size)
+                self.mBlufiMTU = client.mtu_size - 4
+            # This does not seem to connect reliably.
+            # await asyncio.wait_for(client.connect(), timeout)
+            svc = client.services.get_service(BLUFI_SERVICE_UUID)
+            self.notif_char = svc.get_characteristic(BLUFI_NOTIF_CHAR_UUID)
+            self.write_char = svc.get_characteristic(BLUFI_WRITE_CHAR_UUID)
+            await client.start_notify(BLUFI_NOTIF_CHAR_UUID, self.onNotify)
+            self._notify_en = True
+        except asyncio.TimeoutError:
+            # raise BluetoothError("Failed to connect: timeout") from asyncio.TimeoutError
+            return False
+
+        self.connected = True
+        self._bleak_client = client
+        return True
+
+    async def _connect_async_addr(self, addr: str, timeout: float) -> bool:
+        self._reset_state()
+        # Use cached device if possible, to avoid having BleakClient do
+        # a scan again.
+        device = await BleakScanner.find_device_by_address(
+            addr, cb=dict(use_bdaddr=False)
         )
 
         client = BleakClient(device)
