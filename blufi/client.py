@@ -19,8 +19,7 @@ from blufi.framectrl import *
 
 import logging
 log = logging.getLogger("blufi")
-logging.basicConfig(level=logging.ERROR)
-logging.getLogger("blufi").setLevel(logging.DEBUG)
+log.setLevel(logging.DEBUG)
 
 class BlufiClient:
     def __init__(self):
