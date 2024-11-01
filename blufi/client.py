@@ -152,7 +152,7 @@ class BlufiClient:
         return self.await_bleak(self._connect_async_name(name, timeout=timeout))
 
     def connectByAddress(self, addr: str, timeout: float = None) -> None:
-        return self.await_bleak(self._connect_async_addr(name, timeout=timeout))
+        return self.await_bleak(self._connect_async_addr(addr, timeout=timeout))
 
     async def _connect_async_name(self, name: str, timeout: float) -> bool:
         self._reset_state()
