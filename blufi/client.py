@@ -60,6 +60,8 @@ class BlufiClient:
         self.rxBuf = bytearray()
         self.rxPubKeyBuf = bytearray()
 
+        self.onCustomDataCallback = None
+
         # Clean up connections, etc. when exiting (even by KeyboardInterrupt)
         atexit.register(self._cleanup)
 
@@ -230,6 +232,8 @@ class BlufiClient:
 
     def onCustomData(self, data):
         log.debug("onCustomData[%d] %s" % (len(data), data.hex()))
+        if(self.onCustomDataCallback):
+            self.onCustomDataCallback(data)
 
     def parsePublicKey(self, data):
         log.debug("parsePublicKey %d bytes" % len(data))
@@ -615,6 +619,8 @@ class BlufiClient:
         comfirmType = getTypeValue(CTRL.PACKAGE_VALUE, CTRL.SUBTYPE_CONNECT_WIFI)
         self.await_bleak(self.post(False, False, self.mRequireAck, comfirmType, None))
 
-    def postCustomData(self, data: bytearray):
+    def postCustomData(self, data: bytearray, callback = None):
         type = getTypeValue(DATA.PACKAGE_VALUE, DATA.SUBTYPE_CUSTOM_DATA)
+        self.onCustomDataCallback = callback
         self.await_bleak(self.post(self.mEncrypted, self.mChecksum, self.mRequireAck, type, data))
+        self.onCustomDataCallback = None
