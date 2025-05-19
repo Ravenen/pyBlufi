@@ -60,6 +60,7 @@ class BlufiClient:
         self.rxPubKeyBuf = bytearray()
 
         self.onCustomDataCallback = None
+        self.response_event = threading.Event()
 
         # Clean up connections, etc. when exiting (even by KeyboardInterrupt)
         atexit.register(self._cleanup)
@@ -251,6 +252,7 @@ class BlufiClient:
         return self.version
 
     def parseWifiState(self, data):
+        print("WIFI DATA:", data)
         if len(data) < 3:
             log.error("invalid wifi state data")
             return
@@ -619,7 +621,22 @@ class BlufiClient:
         self.await_bleak(self.post(False, False, self.mRequireAck, comfirmType, None))
 
     def postCustomData(self, data: bytearray, callback = None):
-        type = getTypeValue(DATA.PACKAGE_VALUE, DATA.SUBTYPE_CUSTOM_DATA)
         self.onCustomDataCallback = callback
+        type = getTypeValue(DATA.PACKAGE_VALUE, DATA.SUBTYPE_CUSTOM_DATA)
         self.await_bleak(self.post(self.mEncrypted, self.mChecksum, self.mRequireAck, type, data))
         self.onCustomDataCallback = None
+
+    def postCustomDataRequest(self, data: bytearray, timeout = 0):
+        response = None
+        def _callback(data):
+            nonlocal response
+            response = data
+            self.response_event.set()
+
+        self.response_event.clear()
+        self.onCustomDataCallback = _callback
+        type = getTypeValue(DATA.PACKAGE_VALUE, DATA.SUBTYPE_CUSTOM_DATA)
+        self.await_bleak(self.post(self.mEncrypted, self.mChecksum, self.mRequireAck, type, data))
+        self.response_event.wait(timeout)
+        self.onCustomDataCallback = None
+        return response
